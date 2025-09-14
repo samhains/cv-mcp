@@ -122,3 +122,6 @@ Troubleshooting
 - Model selection: prefer `cv_mcp.config.json` at project root; or pass `--config-path`.
 - Large images: remote images are downloaded and sent as base64; ensure the URL is accessible.
 - Local backend: install optional deps `pip install .[local]` and ensure model is present/cached.
+
+Changelog
+- See `docs/CHANGELOG.md` for notable changes and release notes.
