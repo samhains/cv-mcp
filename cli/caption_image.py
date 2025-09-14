@@ -34,13 +34,21 @@ def main():
     g.add_argument("--image-url", help="HTTP/HTTPS URL of the image")
     g.add_argument("--file-path", help="Local file path to the image")
     p.add_argument("--prompt", default=DEFAULT_PROMPT)
-    p.add_argument("--backend", choices=["openrouter", "local"], default="openrouter")
-    p.add_argument("--local-model-id", default="Qwen/Qwen2-VL-2B-Instruct")
+    p.add_argument("--backend", choices=["openrouter", "local"], default=None)
+    p.add_argument("--local-model-id", default=None)
     args = p.parse_args()
 
     image_ref = args.image_url or args.file_path  # type: ignore
 
-    if args.backend == "openrouter":
+    # Resolve defaults from global config
+    try:
+        from cv_mcp.metadata.runner import _CFG as _GLOBAL_CFG  # type: ignore
+    except Exception:
+        _GLOBAL_CFG = {}
+    backend = (args.backend or str(_GLOBAL_CFG.get("ac_backend", "openrouter"))).lower()
+    local_model_id = args.local_model_id or str(_GLOBAL_CFG.get("local_model_id", "Qwen/Qwen2-VL-2B-Instruct"))
+
+    if backend == "openrouter":
         if not os.getenv("OPENROUTER_API_KEY"):
             print("Error: OPENROUTER_API_KEY is not set. Add it to your environment or a .env file.", file=sys.stderr)
             sys.exit(1)
@@ -62,7 +70,7 @@ def main():
         )
         sys.exit(1)
 
-    local = LocalCaptioner(model_id=args.local_model_id)
+    local = LocalCaptioner(model_id=local_model_id)
     out = local.caption(image_ref, args.prompt)
     print(out)
 

@@ -1,0 +1,11 @@
+{
+  "ac_model": "google/gemini-2.5-pro",
+  "meta_text_model": "google/gemini-2.5-pro",
+  "meta_vision_model": "google/gemini-2.5-pro",
+
+  "ac_backend": "openrouter",
+  "meta_vision_backend": "openrouter",
+
+  "local_model_id": "Qwen/Qwen2-VL-2B-Instruct"
+}
+

@@ -39,8 +39,8 @@ def caption_image(
     image_url: Optional[str] = None,
     file_path: Optional[str] = None,
     prompt: str = DEFAULT_PROMPT,
-    backend: str = "openrouter",
-    local_model_id: str = "Qwen/Qwen2-VL-2B-Instruct",
+    backend: Optional[str] = None,
+    local_model_id: Optional[str] = None,
 ) -> str:
     if not image_url and not file_path:
         raise ValueError("Provide either image_url or file_path")
@@ -49,14 +49,22 @@ def caption_image(
 
     image_ref = image_url or file_path  # type: ignore
 
-    if backend.lower() == "openrouter":
+    # Resolve defaults from global config if not explicitly provided
+    try:
+        from cv_mcp.metadata.runner import _CFG as _GLOBAL_CFG  # type: ignore
+    except Exception:
+        _GLOBAL_CFG = {}
+    backend = (backend or str(_GLOBAL_CFG.get("ac_backend", "openrouter"))).lower()
+    local_model_id = local_model_id or str(_GLOBAL_CFG.get("local_model_id", "Qwen/Qwen2-VL-2B-Instruct"))
+
+    if backend == "openrouter":
         client = OpenRouterClient()
         res = client.analyze_single_image(image_ref, prompt)
         if not res.get("success"):
             raise RuntimeError(str(res.get("error", "Captioning failed")))
         content = res.get("content", "")
         return str(content)
-    elif backend.lower() == "local":
+    elif backend == "local":
         try:
             from cv_mcp.captioning.local_captioner import LocalCaptioner
         except Exception as e:  # pragma: no cover

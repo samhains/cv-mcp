@@ -1,33 +1,84 @@
 from __future__ import annotations
 
 import json
+import os
 from typing import Optional, Union, Dict, Any
 from pathlib import Path
 
 from cv_mcp.captioning.openrouter_client import OpenRouterClient
 from cv_mcp.metadata import prompts
 
-_CONFIG_PATH = Path(__file__).with_name("config.json")
-try:
-    _MODELS = json.loads(_CONFIG_PATH.read_text(encoding="utf-8"))
-except Exception:
-    _MODELS = {
-        "ac_model": "google/gemini-2.5-pro",
-        "meta_text_model": "google/gemini-2.5-pro",
-        "meta_vision_model": "google/gemini-2.5-pro",
-    }
+_PKG_DEFAULT_CONFIG_PATH = Path(__file__).with_name("config.json")
+
+
+def _read_json(path: Union[str, Path]) -> Dict[str, Any]:
+    return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
+def _load_global_config() -> Dict[str, Any]:
+    # 1) Explicit env override
+    env_path = os.getenv("CV_MCP_CONFIG")
+    if env_path and Path(env_path).exists():
+        try:
+            return _read_json(env_path)
+        except Exception:
+            pass
+    # 2) Project-root default (cwd)
+    cwd_cfg = Path.cwd() / "cv_mcp.config.json"
+    if cwd_cfg.exists():
+        try:
+            return _read_json(cwd_cfg)
+        except Exception:
+            pass
+    # 3) Packaged defaults
+    try:
+        return _read_json(_PKG_DEFAULT_CONFIG_PATH)
+    except Exception:
+        return {
+            "ac_model": "google/gemini-2.5-pro",
+            "meta_text_model": "google/gemini-2.5-pro",
+            "meta_vision_model": "google/gemini-2.5-pro",
+        }
+
+
+# Loaded on import; used as base defaults and merged per call if file is provided
+_CFG: Dict[str, Any] = _load_global_config()
 
 
 def _load_text(path: Union[str, Path]) -> str:
     return Path(path).read_text(encoding="utf-8")
 
 
+def _cfg_value(key: str, default: Any = None) -> Any:
+    return _CFG.get(key, default)
+
+
+def _use_local_for(key: str) -> bool:
+    # key is one of: "ac", "meta_vision". Text metadata requires text LLM (remote).
+    return str(_cfg_value(f"{key}_backend", "openrouter")).lower() == "local"
+
+
+def _local_gen(image_ref: str, prompt: str, *, max_new_tokens: int = 256) -> str:
+    try:
+        from cv_mcp.captioning.local_captioner import LocalCaptioner
+    except Exception as e:  # pragma: no cover
+        raise RuntimeError(
+            "Local backend not available. Install optional deps with `pip install .[local]`."
+        ) from e
+    model_id = str(_cfg_value("local_model_id", "Qwen/Qwen2-VL-2B-Instruct"))
+    local = LocalCaptioner(model_id=model_id)
+    return local.caption(image_ref, prompt, max_new_tokens=max_new_tokens)
+
+
 def run_alt_text(image_ref: str, *, model: Optional[str] = None, max_words: int = 20) -> str:
+    if _use_local_for("ac"):
+        prompt = f"{prompts.ALT_SYSTEM}\n\n{prompts.alt_user_prompt(max_words)}"
+        return _local_gen(image_ref, prompt)
     client = OpenRouterClient()
     res = client.analyze_single_image(
         image_ref,
         prompts.alt_user_prompt(max_words),
-        model=model or _MODELS.get("ac_model"),
+        model=model or _cfg_value("ac_model"),
         system=prompts.ALT_SYSTEM,
     )
     if not res.get("success"):
@@ -36,11 +87,14 @@ def run_alt_text(image_ref: str, *, model: Optional[str] = None, max_words: int 
 
 
 def run_dense_caption(image_ref: str, *, model: Optional[str] = None) -> str:
+    if _use_local_for("ac"):
+        prompt = f"{prompts.CAPTION_SYSTEM}\n\n{prompts.CAPTION_USER}"
+        return _local_gen(image_ref, prompt)
     client = OpenRouterClient()
     res = client.analyze_single_image(
         image_ref,
         prompts.CAPTION_USER,
-        model=model or _MODELS.get("ac_model"),
+        model=model or _cfg_value("ac_model"),
         system=prompts.CAPTION_SYSTEM,
     )
     if not res.get("success"):
@@ -54,18 +108,22 @@ def run_structured_json(
     *,
     schema_path: Union[str, Path],
     model: Optional[str] = None,
-) -> Dict[str, Any]:
-    client = OpenRouterClient()
+        ) -> Dict[str, Any]:
     user_prompt = prompts.structured_user(dense_caption)
-    res = client.analyze_single_image(
-        image_ref,
-        user_prompt,
-        model=model or _MODELS.get("meta_vision_model"),
-        system=prompts.structured_system(),
-    )
-    if not res.get("success"):
-        raise RuntimeError(str(res.get("error", "JSON metadata generation failed")))
-    text = str(res.get("content", "")).strip()
+    if _use_local_for("meta_vision"):
+        prompt = f"{prompts.structured_system()}\n\n{user_prompt}"
+        text = _local_gen(image_ref, prompt, max_new_tokens=512)
+    else:
+        client = OpenRouterClient()
+        res = client.analyze_single_image(
+            image_ref,
+            user_prompt,
+            model=model or _cfg_value("meta_vision_model"),
+            system=prompts.structured_system(),
+        )
+        if not res.get("success"):
+            raise RuntimeError(str(res.get("error", "JSON metadata generation failed")))
+        text = str(res.get("content", "")).strip()
 
     try:
         data = json.loads(text)
@@ -147,16 +205,20 @@ def _post_validate(data: Dict[str, Any]) -> None:
 
 
 def run_alt_and_caption(image_ref: str, *, model: Optional[str] = None) -> Dict[str, str]:
-    client = OpenRouterClient()
-    res = client.analyze_single_image(
-        image_ref,
-        prompts.ac_user(),
-        model=model or _MODELS.get("ac_model"),
-        system=prompts.AC_SYSTEM,
-    )
-    if not res.get("success"):
-        raise RuntimeError(str(res.get("error", "Alt+caption generation failed")))
-    text = str(res.get("content", "")).strip()
+    if _use_local_for("ac"):
+        prompt = f"{prompts.AC_SYSTEM}\n\n{prompts.ac_user()}"
+        text = _local_gen(image_ref, prompt, max_new_tokens=512)
+    else:
+        client = OpenRouterClient()
+        res = client.analyze_single_image(
+            image_ref,
+            prompts.ac_user(),
+            model=model or _cfg_value("ac_model"),
+            system=prompts.AC_SYSTEM,
+        )
+        if not res.get("success"):
+            raise RuntimeError(str(res.get("error", "Alt+caption generation failed")))
+        text = str(res.get("content", "")).strip()
     try:
         data = json.loads(text)
     except json.JSONDecodeError:
@@ -170,13 +232,14 @@ def run_alt_and_caption(image_ref: str, *, model: Optional[str] = None) -> Dict[
 
 
 def run_metadata_from_caption(caption: str, *, schema_path: Union[str, Path], model: Optional[str] = None) -> Dict[str, Any]:
+    # Text metadata requires a chat LLM; only OpenRouter supported here.
     client = OpenRouterClient()
     res = client.chat(
         messages=[
             {"role": "system", "content": prompts.structured_text_system()},
             {"role": "user", "content": prompts.structured_text_user(caption)},
         ],
-        model=model or _MODELS.get("meta_text_model"),
+        model=model or _cfg_value("meta_text_model"),
     )
     if not res.get("success"):
         raise RuntimeError(str(res.get("error", "Metadata (text) generation failed")))
@@ -200,7 +263,7 @@ def run_pipeline_double(
     config_path: Optional[Union[str, Path]] = None,
     schema_path: Union[str, Path] = Path(__file__).with_name("schema.json"),
 ) -> Dict[str, Any]:
-    cfg = _MODELS
+    cfg = dict(_CFG)
     if config_path:
         try:
             cfg = json.loads(Path(config_path).read_text(encoding="utf-8"))
@@ -217,7 +280,7 @@ def run_pipeline_triple(
     config_path: Optional[Union[str, Path]] = None,
     schema_path: Union[str, Path] = Path(__file__).with_name("schema.json"),
 ) -> Dict[str, Any]:
-    cfg = _MODELS
+    cfg = dict(_CFG)
     if config_path:
         try:
             cfg = json.loads(Path(config_path).read_text(encoding="utf-8"))

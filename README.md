@@ -80,18 +80,24 @@ Schema & vocab
 - JSON schema (lean): `src/cv_mcp/metadata/schema.json`
 - Controlled vocab (non-binding reference): `src/cv_mcp/metadata/vocab.json`
 
-Model config
-- Packaged defaults: `src/cv_mcp/metadata/config.json`
+Global config
+- Root file: `cv_mcp.config.json` (auto-detected from project root / CWD)
+- Env override: set `CV_MCP_CONFIG=/path/to/config.json`
 - Keys:
-  - `ac_model`: vision model for alt+caption
+  - `ac_model`: vision model for alt+caption (OpenRouter)
   - `meta_text_model`: text model for metadata (double mode)
   - `meta_vision_model`: vision model for metadata (triple mode)
-- Supply a custom config via `--config-path` or `config_path` tool param.
+  - `ac_backend`: `openrouter` (default) or `local` for alt/dense/AC steps
+  - `meta_vision_backend`: `openrouter` (default) or `local` for triple mode
+  - `local_model_id`: default local VLM (e.g. `Qwen/Qwen2-VL-2B-Instruct`)
+- Packaged defaults still live at `src/cv_mcp/metadata/config.json` and are used if no root config is found.
+- You can still provide a custom config file per-call via `--config-path` or the `config_path` tool param.
 
 Local backend (optional)
 - Install optional deps: `pip install .[local]`
-- Use with MCP: pass `backend: "local"` in the tool params
-- Use with CLI: add `--backend local` and optionally `--local-model-id Qwen/Qwen2-VL-2B-Instruct`
+- Global default: set `"ac_backend": "local"` (and optionally `"meta_vision_backend": "local"`) in `cv_mcp.config.json`
+- Use with MCP: pass `backend: "local"` in the tool params (overrides global)
+- Use with CLI: add `--backend local` and optionally `--local-model-id Qwen/Qwen2-VL-2B-Instruct` (overrides global)
 - Requires a locally available model (default: `Qwen/Qwen2-VL-2B-Instruct` via HF cache)
 
 Examples
@@ -100,6 +106,6 @@ Examples
 
 Troubleshooting
 - 401/403 from OpenRouter: ensure `OPENROUTER_API_KEY` is set and valid.
-- Model selection: edit `src/cv_mcp/metadata/config.json` or pass `--config-path`.
+- Model selection: prefer `cv_mcp.config.json` at project root; or pass `--config-path`.
 - Large images: remote images are downloaded and sent as base64; ensure the URL is accessible.
 - Local backend: install optional deps `pip install .[local]` and ensure model is present/cached.
