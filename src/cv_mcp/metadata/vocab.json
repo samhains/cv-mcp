@@ -1,0 +1,35 @@
+{
+  "style": {
+    "genre": [
+      "documentary", "street", "portrait", "landscape", "architecture", "still_life",
+      "sports", "wildlife", "macro", "fashion", "product"
+    ],
+    "artistic": [
+      "minimalist", "abstract", "surreal", "cinematic", "vintage", "aerial",
+      "black_and_white", "long_exposure", "motion_blur", "high_key", "low_key"
+    ],
+    "composition": [
+      "rule_of_thirds", "centered", "symmetry", "leading_lines", "framing",
+      "close_up", "wide_shot", "overhead", "eye_level", "diagonal"
+    ],
+    "lighting": [
+      "natural", "artificial", "backlit", "rim_light", "soft_light", "hard_light",
+      "golden_hour", "blue_hour", "night", "indoor"
+    ],
+    "color_scheme": [
+      "monochrome", "warm", "cool", "complementary", "analogous", "vibrant", "muted"
+    ]
+  },
+  "mood": [
+    "calm", "tense", "joyful", "somber", "mysterious", "energetic", "intimate", "formal"
+  ],
+  "scene": [
+    "indoor", "outdoor", "urban", "rural", "nature", "beach", "mountain", "office",
+    "street", "park", "home", "studio", "stadium"
+  ],
+  "colors": [
+    "red", "orange", "yellow", "green", "cyan", "blue", "purple", "pink", "brown",
+    "black", "white", "gray"
+  ]
+}
+

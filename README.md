@@ -1,6 +1,6 @@
 # cv-mcp
 
-Minimal MCP server focused on computer vision: image recognition (captioning) via OpenRouter (Gemini 2.5 Flash).
+Minimal MCP server focused on computer vision: image recognition and metadata generation via OpenRouter (Gemini 2.5 family).
 
 Goals
 - Keep it tiny and composable
@@ -8,13 +8,17 @@ Goals
 - No DB or app logic
 
 Structure
-- `src/cv_art_mcp/captioning/openrouter_client.py` – image analysis client
-- `src/cv_art_mcp/mcp_server.py` – MCP server exposing `caption_image`
+- `src/cv_mcp/captioning/openrouter_client.py` – image analysis client
+- `src/cv_mcp/metadata/` – prompts, JSON schema, and pipeline runner
+- `src/cv_mcp/mcp_server.py` – MCP server exposing tools
 - `cli/caption_image.py` – optional CLI to test captioning locally
 
 Env vars
 - `OPENROUTER_API_KEY`
-- `OPENROUTER_MODEL` (optional, default: `google/gemini-2.5-flash`)
+
+Dotenv
+- Put `OPENROUTER_API_KEY` in a local `.env` file (see `.env.example`).
+- CLI scripts and the MCP server auto-load `.env` if present.
 
 Install
 - `pip install -e .` (or `pip install .`)
@@ -30,29 +34,27 @@ MCP integration (Claude Desktop)
       "cv-mcp": {
         "command": "cv-mcp-server",
         "env": {
-          "OPENROUTER_API_KEY": "sk-or-...",
-          "OPENROUTER_MODEL": "google/gemini-2.5-flash"
+          "OPENROUTER_API_KEY": "sk-or-..."
         }
       }
     }
   }
 - After saving, restart Claude Desktop and enable the tool.
 
-Tool: caption_image
-- Inputs: `image_url` (http/https) or `file_path` (local), optional `prompt`
-- Output: concise caption text
+Tools
+- `caption_image`: one-off caption (kept for compatibility)
+- `alt_text`: short alt text (<= 20 words)
+- `dense_caption`: detailed 2–6 sentence caption
+- `image_metadata`: structured JSON metadata with alt + caption. Params:
+  - `mode`: `double` (default) uses 2 calls: vision (alt+caption) + text-only (metadata). `triple` uses vision for both steps.
+  - `caption_override`: supply your own dense caption; skips the vision caption step.
 
 MCP tool reference
 - Server: `cv-mcp` (stdio)
-- Tool name: `caption_image`
-- Description: Generate a concise caption for an image using OpenRouter (default) or a local VLM
-- Parameters:
-  - `image_url` (string): HTTP/HTTPS image URL. Mutually exclusive with `file_path`.
-  - `file_path` (string): Local file path to the image. Mutually exclusive with `image_url`.
-  - `prompt` (string, optional): Defaults to “Write a concise, vivid caption for this image. Describe key subjects, scene, and mood in 1-2 sentences.”
-  - `backend` (string, optional): `openrouter` | `local` (default: `openrouter`).
-  - `local_model_id` (string, optional): For `backend=local`, defaults to `Qwen/Qwen2-VL-2B-Instruct`.
-- Returns: caption text (string)
+- `caption_image(image_url|file_path, prompt?, backend?, local_model_id?) -> string`
+- `alt_text(image_url|file_path, max_words?) -> string`
+- `dense_caption(image_url|file_path) -> string`
+- `image_metadata(image_url|file_path, caption_override?, config_path?) -> { alt_text, caption, metadata }`
 
 Examples
 - MCP call (OpenRouter):
@@ -63,6 +65,28 @@ Examples
 Quick test (CLI)
 - URL: `python cli/caption_image.py --image-url https://example.com/img.jpg`
 - File: `python cli/caption_image.py --file-path ./image.png`
+
+Metadata pipeline (CLI)
+- Double (default):
+  - `python cli/image_metadata.py --image-url https://example.com/img.jpg --mode double`
+- Triple (vision metadata):
+  - `python cli/image_metadata.py --image-url https://example.com/img.jpg --mode triple`
+- With existing caption (skips the caption step):
+  - `python cli/image_metadata.py --image-url https://example.com/img.jpg --caption-override "<dense caption>" --mode double`
+- Custom model config (JSON with `ac_model`, `meta_text_model`, `meta_vision_model`):
+  - `python cli/image_metadata.py --image-url https://example.com/img.jpg --config-path ./my_models.json --mode double`
+
+Schema & vocab
+- JSON schema (lean): `src/cv_mcp/metadata/schema.json`
+- Controlled vocab (non-binding reference): `src/cv_mcp/metadata/vocab.json`
+
+Model config
+- Packaged defaults: `src/cv_mcp/metadata/config.json`
+- Keys:
+  - `ac_model`: vision model for alt+caption
+  - `meta_text_model`: text model for metadata (double mode)
+  - `meta_vision_model`: vision model for metadata (triple mode)
+- Supply a custom config via `--config-path` or `config_path` tool param.
 
 Local backend (optional)
 - Install optional deps: `pip install .[local]`
@@ -76,6 +100,6 @@ Examples
 
 Troubleshooting
 - 401/403 from OpenRouter: ensure `OPENROUTER_API_KEY` is set and valid.
-- Model selection: override default with `OPENROUTER_MODEL`.
+- Model selection: edit `src/cv_mcp/metadata/config.json` or pass `--config-path`.
 - Large images: remote images are downloaded and sent as base64; ensure the URL is accessible.
 - Local backend: install optional deps `pip install .[local]` and ensure model is present/cached.

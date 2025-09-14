@@ -1,0 +1,2 @@
+"""Captioning backends (OpenRouter, local)."""
+

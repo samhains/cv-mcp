@@ -1,0 +1,5 @@
+{
+  "ac_model": "google/gemini-2.5-pro",
+  "meta_text_model": "google/gemini-2.5-pro",
+  "meta_vision_model": "google/gemini-2.5-pro"
+}

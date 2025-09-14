@@ -1,14 +1,4 @@
 #!/usr/bin/env python3
-"""
-Local image captioning using a vision-language model (e.g., Qwen2-VL Instruct).
-This module is optional and only imported when `backend="local"` is requested.
-
-You must install the optional dependencies first, e.g.:
-  pip install .[local]
-
-And have the model available locally or via your configured HF cache.
-Default model: Qwen/Qwen2-VL-2B-Instruct
-"""
 from __future__ import annotations
 
 from typing import Optional, Union
@@ -41,7 +31,6 @@ class LocalCaptioner:
         self._AutoProcessor = AutoProcessor
         self.model_id = model_id
 
-        # Load processor and model (expects model to be available locally/in cache)
         self.processor = self._AutoProcessor.from_pretrained(
             model_id, trust_remote_code=trust_remote_code
         )
@@ -52,7 +41,7 @@ class LocalCaptioner:
             trust_remote_code=trust_remote_code,
         )
 
-    def _load_image(self, image_ref: Union[str, Image.Image]) -> Image.Image:
+    def _load_image(self, image_ref: Union[str, "Image.Image"]) -> "Image.Image":
         if Image is None:  # pragma: no cover
             raise RuntimeError(
                 "Local backend requires Pillow. Install with `pip install .[local]`."
@@ -63,7 +52,6 @@ class LocalCaptioner:
             resp = requests.get(image_ref, timeout=30)
             resp.raise_for_status()
             return Image.open(io.BytesIO(resp.content)).convert("RGB")
-        # assume local path
         return Image.open(image_ref).convert("RGB")
 
     def caption(
@@ -72,10 +60,7 @@ class LocalCaptioner:
         prompt: str,
         max_new_tokens: int = 128,
     ) -> str:
-        """Generate a caption for the given image using the local model."""
         img = self._load_image(image)
-
-        # Qwen2-VL chat template style
         messages = [
             {
                 "role": "user",
@@ -97,7 +82,5 @@ class LocalCaptioner:
         )
 
         out = self.processor.batch_decode(generate_ids, skip_special_tokens=True)[0]
-
-        # Heuristic: processor already returns the assistant text. If not, try to slice after last 'assistant\n\n'
         return out.strip()
 

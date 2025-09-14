@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "media_type",
+    "objects",
+    "place",
+    "scene",
+    "lighting",
+    "style",
+    "palette",
+    "text",
+    "people",
+    "privacy",
+    "tags",
+    "notes"
+  ],
+  "properties": {
+    "media_type": {
+      "type": "string",
+      "enum": [
+        "photo", "film_still", "painting", "illustration",
+        "render", "screenshot", "poster", "document"
+      ]
+    },
+    "objects": { "type": "array", "items": { "type": "string" }, "maxItems": 6 },
+    "place": { "oneOf": [ {"type": "string"}, {"type": "null"} ] },
+    "scene": { "type": "array", "items": { "type": "string" }, "maxItems": 3 },
+    "lighting": { "type": "array", "items": { "type": "string" }, "maxItems": 3 },
+    "style": { "type": "array", "items": { "type": "string" }, "maxItems": 5 },
+    "palette": { "type": "array", "items": { "type": "string" }, "maxItems": 6 },
+    "text": { "type": "array", "items": { "type": "string" } },
+    "people": {
+      "type": "object",
+      "required": ["count", "faces_visible"],
+      "properties": {
+        "count": { "type": "integer", "minimum": 0 },
+        "faces_visible": { "type": "boolean" }
+      }
+    },
+    "privacy": {
+      "type": "array",
+      "items": {"type": "string", "enum": [
+        "faces_visible", "license_plate_visible", "nudity_or_racy", "children_visible", "sensitive_document"
+      ]}
+    },
+    "tags": { "type": "array", "items": { "type": "string" }, "maxItems": 20 },
+    "notes": { "oneOf": [ {"type": "string"}, {"type": "null"} ] }
+  }
+}

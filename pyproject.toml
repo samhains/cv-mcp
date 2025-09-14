@@ -20,7 +20,7 @@ homepage = ""
 issues = ""
 
 [project.scripts]
-cv-mcp-server = "cv_art_mcp.mcp_server:main"
+cv-mcp-server = "cv_mcp.mcp_server:main"
 
 [project.optional-dependencies]
 local = [
