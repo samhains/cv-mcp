@@ -69,8 +69,12 @@ Quick test (CLI)
 Metadata pipeline (CLI)
 - Double (default):
   - `python cli/image_metadata.py --image-url https://example.com/img.jpg --mode double`
+  - Local alt+caption (still requires OpenRouter for metadata):
+    - `python cli/image_metadata.py --image-url https://example.com/img.jpg --mode double --ac-backend local`
 - Triple (vision metadata):
   - `python cli/image_metadata.py --image-url https://example.com/img.jpg --mode triple`
+  - Fully local (no OpenRouter required):
+    - `python cli/image_metadata.py --image-url https://example.com/img.jpg --mode triple --ac-backend local --meta-vision-backend local`
 - With existing caption (skips the caption step):
   - `python cli/image_metadata.py --image-url https://example.com/img.jpg --caption-override "<dense caption>" --mode double`
 - Custom model config (JSON with `ac_model`, `meta_text_model`, `meta_vision_model`):
@@ -99,6 +103,15 @@ Local backend (optional)
 - Use with MCP: pass `backend: "local"` in the tool params (overrides global)
 - Use with CLI: add `--backend local` and optionally `--local-model-id Qwen/Qwen2-VL-2B-Instruct` (overrides global)
 - Requires a locally available model (default: `Qwen/Qwen2-VL-2B-Instruct` via HF cache)
+
+Per-call overrides (CLI)
+- Metadata CLI now supports per-call backend overrides without editing global config:
+  - `--ac-backend local|openrouter`
+  - `--meta-vision-backend local|openrouter` (triple mode)
+  - `--local-model-id Qwen/Qwen2-VL-2B-Instruct`
+- OpenRouter key requirements:
+  - Double mode always requires `OPENROUTER_API_KEY` (text LLM for metadata).
+  - Triple mode requires `OPENROUTER_API_KEY` unless both `--ac-backend local` and `--meta-vision-backend local` are set.
 
 Examples
 - MCP tool (local): `{"backend": "local", "file_path": "./image.jpg"}`
