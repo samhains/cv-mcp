@@ -1,6 +1,6 @@
 # cv-art-mcp
 
-Minimal MCP server focused on computer vision: image recognition (captioning) via OpenRouter (Claude 3.5 Sonnet).
+Minimal MCP server focused on computer vision: image recognition (captioning) via OpenRouter (Gemini 2.5 Flash).
 
 Goals
 - Keep it tiny and composable
@@ -14,6 +14,7 @@ Structure
 
 Env vars
 - `OPENROUTER_API_KEY`
+- `OPENROUTER_MODEL` (optional, default: `google/gemini-2.5-flash`)
 
 Install
 - `pip install -e .` (or `pip install .`)

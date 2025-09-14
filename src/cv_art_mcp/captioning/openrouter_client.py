@@ -17,7 +17,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 class OpenRouterClient:
-    def __init__(self, api_key: Optional[str] = None, model: str = "anthropic/claude-3.5-sonnet"):
+    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
         """
         Initialize OpenRouter client
         
@@ -29,7 +29,8 @@ class OpenRouterClient:
         if not self.api_key:
             raise ValueError("OpenRouter API key not found. Set OPENROUTER_API_KEY environment variable.")
         
-        self.model = model
+        # Allow runtime override via env, then parameter, then default
+        self.model = os.getenv("OPENROUTER_MODEL") or model or "google/gemini-2.5-flash"
         self.base_url = "https://openrouter.ai/api/v1/chat/completions"
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",
