@@ -1,0 +1,22 @@
+# Changelog
+
+All notable changes to this project are documented here.
+
+The format is based on Keep a Changelog, and this project adheres to Semantic Versioning where practical.
+
+## [Unreleased]
+- Planned: additional CLI ergonomics and presets for local/remote testing.
+- Planned: Makefile targets for common workflows.
+
+## [0.0.1] - 2025-09-14
+### Added
+- Metadata CLI backend overrides: `--ac-backend`, `--meta-vision-backend`, and `--local-model-id`.
+- Conditional OpenRouter key requirement in CLI (only when a selected step uses OpenRouter).
+- Documentation for testing local "double" with URL and fully local "triple" flows.
+
+### Changed
+- `cli/image_metadata.py` help text clarified to cover both double and triple modes.
+
+### Notes
+- Double mode still requires a text LLM via OpenRouter for metadata. Use triple mode with both backends set to `local` for fully local operation.
+
