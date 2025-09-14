@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cv-art-mcp"
+version = "0.0.1"
+description = "Minimal CV MCP server: image recognition (captioning)"
+authors = [{ name = "cv-art" }]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "requests>=2.31.0",
+  "python-dotenv>=1.0.1",
+  "mcp>=0.1.0",
+]
+
+[project.urls]
+homepage = ""
+issues = ""
+
+[project.scripts]
+cv-art-mcp-server = "cv_art_mcp.mcp_server:main"
+
+[project.optional-dependencies]
+local = [
+  "Pillow>=10.0.0",
+  "transformers>=4.43.0",
+  "accelerate>=0.30.0",
+  "torch>=2.1.0; platform_system != 'Darwin' or platform_machine != 'arm64'",
+  "torch>=2.1.0; platform_system == 'Darwin' and platform_machine == 'arm64'",
+  "qwen-vl-utils>=0.0.8; python_version >= '3.10'",
+  "timm>=0.9.0",
+]
