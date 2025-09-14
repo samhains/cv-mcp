@@ -34,7 +34,7 @@ def _default_schema_path() -> Path:
 
 
 def main():
-    p = argparse.ArgumentParser(description="Run the 3-step image metadata pipeline and print JSON")
+    p = argparse.ArgumentParser(description="Run the image metadata pipeline (double or triple) and print JSON")
     g = p.add_mutually_exclusive_group(required=True)
     g.add_argument("--image-url", help="HTTP/HTTPS URL of the image")
     g.add_argument("--file-path", help="Local file path to the image")
@@ -44,14 +44,41 @@ def main():
     p.add_argument("--schema-path", default=None, help="Path to schema.json (defaults to packaged schema)")
     p.add_argument("--mode", choices=["double", "triple"], default="double", help="Pipeline mode: double (vision alt+caption + text metadata) or triple (vision alt+caption + vision metadata)")
     p.add_argument("--indent", type=int, default=2, help="JSON indent (default: 2)")
+    # Backend overrides (useful for local testing without editing global config)
+    p.add_argument("--ac-backend", choices=["openrouter", "local"], default=None, help="Backend for alt+caption step (default from global config)")
+    p.add_argument("--meta-vision-backend", choices=["openrouter", "local"], default=None, help="Backend for metadata (vision) in triple mode (default from global config)")
+    p.add_argument("--local-model-id", default=None, help="Local VLM model id (e.g. Qwen/Qwen2-VL-2B-Instruct)")
 
     args = p.parse_args()
     image_ref = args.image_url or args.file_path  # type: ignore
 
     try:
-        # Early env check for clearer error messages
-        if not os.getenv("OPENROUTER_API_KEY"):
-            raise RuntimeError("OPENROUTER_API_KEY is not set. Add it to your environment or a .env file.")
+        # Apply backend overrides to the in-memory global config
+        from cv_mcp.metadata import runner as md_runner  # type: ignore
+        effective_cfg = dict(md_runner._CFG)
+        if args.ac_backend:
+            effective_cfg["ac_backend"] = args.ac_backend
+        if args.meta_vision_backend:
+            effective_cfg["meta_vision_backend"] = args.meta_vision_backend
+        if args.local_model_id:
+            effective_cfg["local_model_id"] = args.local_model_id
+        # Persist overrides for this process
+        md_runner._CFG.update(effective_cfg)
+
+        # Early env check only if any step uses OpenRouter
+        def _is_local(key: str) -> bool:
+            return str(effective_cfg.get(f"{key}_backend", "openrouter")).lower() == "local"
+
+        needs_or_key = False
+        if args.mode == "double":
+            # Double always uses text LLM for metadata via OpenRouter
+            needs_or_key = True
+        else:
+            # Triple only needs OR if either step is remote
+            needs_or_key = not (_is_local("ac") and _is_local("meta_vision"))
+
+        if needs_or_key and not os.getenv("OPENROUTER_API_KEY"):
+            raise RuntimeError("OPENROUTER_API_KEY is required for the selected mode/backends. Add it to your environment or a .env file.")
 
         if args.caption_override:
             # If a config is provided, use it to select models for steps as applicable
