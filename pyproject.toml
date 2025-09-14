@@ -3,7 +3,7 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "cv-art-mcp"
+name = "cv-mcp"
 version = "0.0.1"
 description = "Minimal CV MCP server: image recognition (captioning)"
 authors = [{ name = "cv-art" }]
@@ -20,7 +20,7 @@ homepage = ""
 issues = ""
 
 [project.scripts]
-cv-art-mcp-server = "cv_art_mcp.mcp_server:main"
+cv-mcp-server = "cv_art_mcp.mcp_server:main"
 
 [project.optional-dependencies]
 local = [

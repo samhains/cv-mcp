@@ -38,7 +38,7 @@ except Exception as e:
     ) from e
 
 
-mcp = FastMCP("cv-art-mcp")
+mcp = FastMCP("cv-mcp")
 
 
 @mcp.tool()

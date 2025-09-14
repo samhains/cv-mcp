@@ -1,4 +1,4 @@
-# cv-art-mcp
+# cv-mcp
 
 Minimal MCP server focused on computer vision: image recognition (captioning) via OpenRouter (Gemini 2.5 Flash).
 
@@ -20,15 +20,15 @@ Install
 - `pip install -e .` (or `pip install .`)
 
 Run MCP server (stdio)
-- Console script: `cv-art-mcp-server` (provides an MCP stdio server)
-- Configure your MCP client to launch `cv-art-mcp-server`.
+- Console script: `cv-mcp-server` (provides an MCP stdio server)
+- Configure your MCP client to launch `cv-mcp-server`.
 
 MCP integration (Claude Desktop)
 - Add to Claude Desktop config (see their docs for the config location):
   {
     "mcpServers": {
-      "cv-art-mcp": {
-        "command": "cv-art-mcp-server",
+      "cv-mcp": {
+        "command": "cv-mcp-server",
         "env": {
           "OPENROUTER_API_KEY": "sk-or-...",
           "OPENROUTER_MODEL": "google/gemini-2.5-flash"
@@ -43,7 +43,7 @@ Tool: caption_image
 - Output: concise caption text
 
 MCP tool reference
-- Server: `cv-art-mcp` (stdio)
+- Server: `cv-mcp` (stdio)
 - Tool name: `caption_image`
 - Description: Generate a concise caption for an image using OpenRouter (default) or a local VLM
 - Parameters:
