@@ -23,6 +23,8 @@ Dotenv
 Install
 - `pip install -e .` (or `pip install .`)
 
+⚠️ **Development Note**: If you have the package installed via `pip install`, uninstall it before working with the local development version to avoid import conflicts. Use `pip uninstall cv-mcp` first, then run commands directly from the repo directory.
+
 Run MCP server (stdio)
 - Console script: `cv-mcp-server` (provides an MCP stdio server)
 - Configure your MCP client to launch `cv-mcp-server`.

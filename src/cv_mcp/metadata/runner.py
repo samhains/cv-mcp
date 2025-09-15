@@ -209,12 +209,29 @@ def run_structured_json(
     try:
         data = json.loads(text)
     except json.JSONDecodeError:
-        start = text.find("{")
-        end = text.rfind("}")
-        if start != -1 and end != -1 and end > start:
-            data = json.loads(text[start:end+1])
+        # Handle markdown code blocks
+        if "```json" in text:
+            json_start = text.find("```json") + 7
+            json_end = text.find("```", json_start)
+            if json_end != -1:
+                json_text = text[json_start:json_end].strip()
+                try:
+                    data = json.loads(json_text)
+                except json.JSONDecodeError as e:
+                    raise RuntimeError(f"Model returned invalid JSON in code block: {e}")
+            else:
+                raise RuntimeError("Incomplete JSON code block")
         else:
-            raise RuntimeError("Model did not return valid JSON")
+            # Fallback to original logic
+            start = text.find("{")
+            end = text.rfind("}")
+            if start != -1 and end != -1 and end > start:
+                try:
+                    data = json.loads(text[start:end+1])
+                except json.JSONDecodeError as e:
+                    raise RuntimeError(f"Model returned invalid JSON: {e}")
+            else:
+                raise RuntimeError("Model did not return valid JSON")
 
     _post_validate(data)
     return data
@@ -315,12 +332,30 @@ def run_alt_and_caption(image_ref: str, *, model: Optional[str] = None) -> Dict[
     try:
         data = json.loads(text)
     except json.JSONDecodeError:
-        start = text.find("{")
-        end = text.rfind("}")
-        if start != -1 and end != -1 and end > start:
-            data = json.loads(text[start:end+1])
+        # Handle markdown code blocks
+        if "```json" in text:
+            json_start = text.find("```json") + 7
+            json_end = text.find("```", json_start)
+            if json_end != -1:
+                json_text = text[json_start:json_end].strip()
+                try:
+                    data = json.loads(json_text)
+                except json.JSONDecodeError as e:
+                    raise RuntimeError(f"Model returned invalid JSON in code block for alt+caption: {e}")
+            else:
+                raise RuntimeError("Incomplete JSON code block for alt+caption")
         else:
-            raise RuntimeError("Model did not return valid JSON for alt+caption")
+            # Fallback to original logic
+            start = text.find("{")
+            end = text.rfind("}")
+            if start != -1 and end != -1 and end > start:
+                extracted_json = text[start:end+1]
+                try:
+                    data = json.loads(extracted_json)
+                except json.JSONDecodeError as e:
+                    raise RuntimeError(f"Model returned invalid JSON for alt+caption: {e}")
+            else:
+                raise RuntimeError("Model did not return valid JSON for alt+caption")
     return {"alt_text": str(data.get("alt_text", "")).strip(), "caption": str(data.get("caption", "")).strip()}
 
 
@@ -340,12 +375,29 @@ def run_metadata_from_caption(caption: str, *, schema_path: Union[str, Path], mo
     try:
         data = json.loads(text)
     except json.JSONDecodeError:
-        start = text.find("{")
-        end = text.rfind("}")
-        if start != -1 and end != -1 and end > start:
-            data = json.loads(text[start:end+1])
+        # Handle markdown code blocks
+        if "```json" in text:
+            json_start = text.find("```json") + 7
+            json_end = text.find("```", json_start)
+            if json_end != -1:
+                json_text = text[json_start:json_end].strip()
+                try:
+                    data = json.loads(json_text)
+                except json.JSONDecodeError as e:
+                    raise RuntimeError(f"Model returned invalid JSON in code block for metadata (text): {e}")
+            else:
+                raise RuntimeError("Incomplete JSON code block for metadata (text)")
         else:
-            raise RuntimeError("Model did not return valid JSON for metadata (text)")
+            # Fallback to original logic
+            start = text.find("{")
+            end = text.rfind("}")
+            if start != -1 and end != -1 and end > start:
+                try:
+                    data = json.loads(text[start:end+1])
+                except json.JSONDecodeError as e:
+                    raise RuntimeError(f"Model returned invalid JSON for metadata (text): {e}")
+            else:
+                raise RuntimeError("Model did not return valid JSON for metadata (text)")
     _post_validate(data)
     return data
 

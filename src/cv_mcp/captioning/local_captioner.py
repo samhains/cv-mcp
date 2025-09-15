@@ -23,7 +23,6 @@ class LocalCaptioner:
         try:
             from transformers import (
                 AutoModelForCausalLM,  # type: ignore
-                AutoModelForConditionalGeneration,  # type: ignore
                 AutoProcessor,  # type: ignore
                 AutoConfig,  # type: ignore
             )
@@ -32,14 +31,19 @@ class LocalCaptioner:
                 from transformers import AutoModelForVision2Seq  # type: ignore
             except Exception:  # pragma: no cover
                 AutoModelForVision2Seq = None  # type: ignore
+            try:
+                # Qwen2.5-VL specific model class
+                from transformers import Qwen2_5_VLForConditionalGeneration  # type: ignore
+            except Exception:  # pragma: no cover
+                Qwen2_5_VLForConditionalGeneration = None  # type: ignore
         except Exception as e:  # pragma: no cover
             raise RuntimeError(
                 "Local backend requires transformers. Install with `pip install .[local]`."
             ) from e
 
         self._AutoModelForCausalLM = AutoModelForCausalLM
-        self._AutoModelForConditionalGeneration = AutoModelForConditionalGeneration
-        self._AutoModelForVision2Seq = 'AutoModelForVision2Seq' in globals() and AutoModelForVision2Seq  # type: ignore
+        self._AutoModelForVision2Seq = AutoModelForVision2Seq if 'AutoModelForVision2Seq' in locals() else None  # type: ignore
+        self._Qwen2_5_VLForConditionalGeneration = Qwen2_5_VLForConditionalGeneration if 'Qwen2_5_VLForConditionalGeneration' in locals() else None  # type: ignore
         self._AutoProcessor = AutoProcessor
         self.model_id = model_id
 
@@ -56,6 +60,19 @@ class LocalCaptioner:
         except Exception:
             model_type = None
 
+        # Try Qwen2.5-VL specific class first for Qwen models
+        if not loaded and self._Qwen2_5_VLForConditionalGeneration and ("qwen" in model_id.lower() or (isinstance(model_type, str) and "qwen" in model_type.lower())):
+            try:
+                self.model = self._Qwen2_5_VLForConditionalGeneration.from_pretrained(
+                    model_id,
+                    torch_dtype=torch_dtype,  # type: ignore[arg-type]
+                    device_map=device_map,
+                    trust_remote_code=trust_remote_code,
+                )
+                loaded = True
+            except Exception as e:
+                loaded = False
+
         # Try Vision2Seq for Qwen2.5-VL and similar
         if not loaded and self._AutoModelForVision2Seq and (isinstance(model_type, str) and ("qwen2_5_vl" in model_type or "vision2seq" in model_type)):
             try:
@@ -66,7 +83,7 @@ class LocalCaptioner:
                     trust_remote_code=trust_remote_code,
                 )
                 loaded = True
-            except Exception:
+            except Exception as e:
                 loaded = False
 
         # Try standard CausalLM
@@ -79,23 +96,14 @@ class LocalCaptioner:
                     trust_remote_code=trust_remote_code,
                 )
                 loaded = True
-            except Exception:
+            except Exception as e:
                 loaded = False
 
-        # Try ConditionalGeneration as a fallback
+        # Final fallback - raise error if nothing worked
         if not loaded:
-            try:
-                self.model = self._AutoModelForConditionalGeneration.from_pretrained(
-                    model_id,
-                    torch_dtype=torch_dtype,  # type: ignore[arg-type]
-                    device_map=device_map,
-                    trust_remote_code=trust_remote_code,
-                )
-                loaded = True
-            except Exception as e:
-                raise RuntimeError(
-                    f"Failed to load local model '{model_id}'. Ensure your transformers version supports this model. Original error: {e}"
-                ) from e
+            raise RuntimeError(
+                f"Failed to load local model '{model_id}'. Ensure your transformers version supports this model."
+            )
 
     def _load_image(self, image_ref: Union[str, "Image.Image"]) -> "Image.Image":
         if Image is None:  # pragma: no cover

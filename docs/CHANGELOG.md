@@ -8,6 +8,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Planned: additional CLI ergonomics and presets for local/remote testing.
 - Planned: Makefile targets for common workflows.
 
+### Fixed
+- Local backend transformers compatibility: Replace non-existent `AutoModelForConditionalGeneration` with proper model classes (`Qwen2_5_VLForConditionalGeneration` for Qwen models)
+- JSON parsing for model outputs wrapped in markdown code blocks (```json...```)
+- Model loading fallback logic improved with better error handling
+
 ## [0.0.1] - 2025-09-14
 ### Added
 - Metadata CLI backend overrides: `--ac-backend`, `--meta-vision-backend`, and `--local-model-id`.
