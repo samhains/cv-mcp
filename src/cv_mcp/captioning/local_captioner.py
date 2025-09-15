@@ -21,25 +21,81 @@ class LocalCaptioner:
         trust_remote_code: bool = True,
     ) -> None:
         try:
-            from transformers import AutoModelForCausalLM, AutoProcessor  # type: ignore
+            from transformers import (
+                AutoModelForCausalLM,  # type: ignore
+                AutoModelForConditionalGeneration,  # type: ignore
+                AutoProcessor,  # type: ignore
+                AutoConfig,  # type: ignore
+            )
+            try:
+                # Optional: vision2seq is the correct head for many VLMs (e.g., Qwen2.5-VL)
+                from transformers import AutoModelForVision2Seq  # type: ignore
+            except Exception:  # pragma: no cover
+                AutoModelForVision2Seq = None  # type: ignore
         except Exception as e:  # pragma: no cover
             raise RuntimeError(
                 "Local backend requires transformers. Install with `pip install .[local]`."
             ) from e
 
         self._AutoModelForCausalLM = AutoModelForCausalLM
+        self._AutoModelForConditionalGeneration = AutoModelForConditionalGeneration
+        self._AutoModelForVision2Seq = 'AutoModelForVision2Seq' in globals() and AutoModelForVision2Seq  # type: ignore
         self._AutoProcessor = AutoProcessor
         self.model_id = model_id
 
         self.processor = self._AutoProcessor.from_pretrained(
             model_id, trust_remote_code=trust_remote_code
         )
-        self.model = self._AutoModelForCausalLM.from_pretrained(
-            model_id,
-            torch_dtype=torch_dtype,  # type: ignore[arg-type]
-            device_map=device_map,
-            trust_remote_code=trust_remote_code,
-        )
+
+        # Prefer a suitable head for VLMs; fall back gracefully.
+        loaded = False
+        # Inspect config to hint correct head
+        try:
+            cfg = AutoConfig.from_pretrained(model_id, trust_remote_code=trust_remote_code)
+            model_type = getattr(cfg, "model_type", None) or getattr(cfg, "architectures", None)
+        except Exception:
+            model_type = None
+
+        # Try Vision2Seq for Qwen2.5-VL and similar
+        if not loaded and self._AutoModelForVision2Seq and (isinstance(model_type, str) and ("qwen2_5_vl" in model_type or "vision2seq" in model_type)):
+            try:
+                self.model = self._AutoModelForVision2Seq.from_pretrained(
+                    model_id,
+                    torch_dtype=torch_dtype,  # type: ignore[arg-type]
+                    device_map=device_map,
+                    trust_remote_code=trust_remote_code,
+                )
+                loaded = True
+            except Exception:
+                loaded = False
+
+        # Try standard CausalLM
+        if not loaded:
+            try:
+                self.model = self._AutoModelForCausalLM.from_pretrained(
+                    model_id,
+                    torch_dtype=torch_dtype,  # type: ignore[arg-type]
+                    device_map=device_map,
+                    trust_remote_code=trust_remote_code,
+                )
+                loaded = True
+            except Exception:
+                loaded = False
+
+        # Try ConditionalGeneration as a fallback
+        if not loaded:
+            try:
+                self.model = self._AutoModelForConditionalGeneration.from_pretrained(
+                    model_id,
+                    torch_dtype=torch_dtype,  # type: ignore[arg-type]
+                    device_map=device_map,
+                    trust_remote_code=trust_remote_code,
+                )
+                loaded = True
+            except Exception as e:
+                raise RuntimeError(
+                    f"Failed to load local model '{model_id}'. Ensure your transformers version supports this model. Original error: {e}"
+                ) from e
 
     def _load_image(self, image_ref: Union[str, "Image.Image"]) -> "Image.Image":
         if Image is None:  # pragma: no cover
@@ -83,4 +139,3 @@ class LocalCaptioner:
 
         out = self.processor.batch_decode(generate_ids, skip_special_tokens=True)[0]
         return out.strip()
-

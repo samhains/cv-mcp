@@ -45,8 +45,8 @@ def main():
         from cv_mcp.metadata.runner import _CFG as _GLOBAL_CFG  # type: ignore
     except Exception:
         _GLOBAL_CFG = {}
-    backend = (args.backend or str(_GLOBAL_CFG.get("ac_backend", "openrouter"))).lower()
-    local_model_id = args.local_model_id or str(_GLOBAL_CFG.get("local_model_id", "Qwen/Qwen2-VL-2B-Instruct"))
+    backend = (args.backend or str(_GLOBAL_CFG.get("caption_backend", "openrouter"))).lower()
+    local_model_id = args.local_model_id or str(_GLOBAL_CFG.get("local_vlm_id", "Qwen/Qwen2-VL-2B-Instruct"))
 
     if backend == "openrouter":
         if not os.getenv("OPENROUTER_API_KEY"):

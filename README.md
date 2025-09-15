@@ -77,7 +77,7 @@ Metadata pipeline (CLI)
     - `python cli/image_metadata.py --image-url https://example.com/img.jpg --mode triple --ac-backend local --meta-vision-backend local`
 - With existing caption (skips the caption step):
   - `python cli/image_metadata.py --image-url https://example.com/img.jpg --caption-override "<dense caption>" --mode double`
-- Custom model config (JSON with `ac_model`, `meta_text_model`, `meta_vision_model`):
+- Custom model config (JSON with `caption_model`, `metadata_text_model`, `metadata_vision_model`):
   - `python cli/image_metadata.py --image-url https://example.com/img.jpg --config-path ./my_models.json --mode double`
 
 Schema & vocab
@@ -87,28 +87,53 @@ Schema & vocab
 Global config
 - Root file: `cv_mcp.config.json` (auto-detected from project root / CWD)
 - Env override: set `CV_MCP_CONFIG=/path/to/config.json`
-- Keys:
-  - `ac_model`: vision model for alt+caption (OpenRouter)
-  - `meta_text_model`: text model for metadata (double mode)
-  - `meta_vision_model`: vision model for metadata (triple mode)
-  - `ac_backend`: `openrouter` (default) or `local` for alt/dense/AC steps
-  - `meta_vision_backend`: `openrouter` (default) or `local` for triple mode
-  - `local_model_id`: default local VLM (e.g. `Qwen/Qwen2-VL-2B-Instruct`)
+- Keys (renamed for clarity):
+  - `caption_model`: vision model for alt+caption (OpenRouter)
+  - `metadata_text_model`: text model for metadata (double mode)
+  - `metadata_vision_model`: vision model for metadata (triple mode)
+  - `caption_backend`: `openrouter` (default) or `local` for alt/dense/AC steps
+  - `metadata_vision_backend`: `openrouter` (default) or `local` for triple mode
+  - `local_vlm_id`: default local VLM (e.g. `Qwen/Qwen2.5-VL-7B-Instruct`)
+  - Backwards-compat: legacy keys (`ac_model`, `meta_text_model`, `meta_vision_model`, `ac_backend`, `meta_vision_backend`, `local_model_id`) are still accepted.
 - Packaged defaults still live at `src/cv_mcp/metadata/config.json` and are used if no root config is found.
 - You can still provide a custom config file per-call via `--config-path` or the `config_path` tool param.
 
-Local backend (optional)
+Local backends (optional)
 - Install optional deps: `pip install .[local]`
-- Global default: set `"ac_backend": "local"` (and optionally `"meta_vision_backend": "local"`) in `cv_mcp.config.json`
+- Global default: set `"caption_backend": "local"` (and optionally `"metadata_vision_backend": "local"`) in `cv_mcp.config.json`
 - Use with MCP: pass `backend: "local"` in the tool params (overrides global)
 - Use with CLI: add `--backend local` and optionally `--local-model-id Qwen/Qwen2-VL-2B-Instruct` (overrides global)
 - Requires a locally available model (default: `Qwen/Qwen2-VL-2B-Instruct` via HF cache)
 
+- Or run without transformers using Ollama (no Python ML deps):
+  - Install and run Ollama; pull a vision model (e.g., `ollama pull qwen2.5-vl`)
+  - Use backend `ollama` and set models in the config (e.g., `caption_model: "qwen2.5-vl"`)
+  - CLI example (triple, fully local):
+    - `python cli/image_metadata.py --image-url https://... --mode triple --caption-backend ollama --metadata-vision-backend ollama --config-path ./configs/triple_ollama_qwen.json`
+  - Configure host with `--ollama-host http://localhost:11434` if not default
+
 Per-call overrides (CLI)
 - Metadata CLI now supports per-call backend overrides without editing global config:
-  - `--ac-backend local|openrouter`
-  - `--meta-vision-backend local|openrouter` (triple mode)
-  - `--local-model-id Qwen/Qwen2-VL-2B-Instruct`
+  - `--caption-backend local|openrouter|ollama` (legacy: `--ac-backend`)
+  - `--metadata-vision-backend local|openrouter|ollama` (legacy: `--meta-vision-backend`)
+  - `--local-vlm-id Qwen/Qwen2.5-VL-7B-Instruct` (legacy: `--local-model-id`)
+  - `--ollama-host http://localhost:11434`
+
+Justfile tasks
+- A `Justfile` provides quick test scenarios. Use URL-only inputs, e.g. `just double_flash https://example.com/img.jpg`.
+- Scenarios included:
+  - `double_flash`: Gemini 2.5 Flash for both steps
+  - `double_pro`: Gemini 2.5 Pro for both steps
+  - `double_mixed_pro_text`: Flash for vision alt+caption, Pro for text metadata (recommended mix for JSON reliability)
+  - `triple_flash` / `triple_pro`: Flash/Pro for both vision steps
+  - `double_qwen_local <url> <qwen_id>`: Local Qwen 2.5 VL for vision step, Pro for text metadata
+  - `triple_qwen_local <url> <qwen_id>`: Fully local Qwen 2.5 VL for both vision steps
+  - Convenience (no extra args):
+    - `double_qwen2b_local <url>` / `triple_qwen2b_local <url>`
+    - `double_qwen7b_local <url>` / `triple_qwen7b_local <url>`
+
+Recommendation for mixed double
+- Put Gemini 2.5 Pro on the text metadata step and Flash on the vision alt+caption step. The metadata step benefits from better structured-JSON compliance and reasoning, while Flash keeps latency/cost down for the vision caption.
 - OpenRouter key requirements:
   - Double mode always requires `OPENROUTER_API_KEY` (text LLM for metadata).
   - Triple mode requires `OPENROUTER_API_KEY` unless both `--ac-backend local` and `--meta-vision-backend local` are set.

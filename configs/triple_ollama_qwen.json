@@ -1,0 +1,8 @@
+{
+  "caption_model": "qwen2.5-vl:latest",
+  "metadata_vision_model": "qwen2.5-vl:latest",
+  "caption_backend": "ollama",
+  "metadata_vision_backend": "ollama",
+  "ollama_host": "http://localhost:11434"
+}
+

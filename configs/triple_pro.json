@@ -1,5 +1,5 @@
 {
   "caption_model": "google/gemini-2.5-pro",
-  "metadata_text_model": "google/gemini-2.5-pro",
   "metadata_vision_model": "google/gemini-2.5-pro"
 }
+

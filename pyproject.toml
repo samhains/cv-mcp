@@ -15,9 +15,9 @@ dependencies = [
   "mcp>=0.1.0",
 ]
 
-[project.urls]
-homepage = ""
-issues = ""
+#[project.urls]
+#homepage = "https://example.com/your-project"
+#issues = "https://example.com/your-project/issues"
 
 [project.scripts]
 cv-mcp-server = "cv_mcp.mcp_server:main"
