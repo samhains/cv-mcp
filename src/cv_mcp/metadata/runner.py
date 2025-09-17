@@ -115,16 +115,25 @@ def _local_gen(image_ref: str, prompt: str, *, max_new_tokens: int = 256) -> str
     return local.caption(image_ref, prompt, max_new_tokens=max_new_tokens)
 
 
-def run_alt_text(image_ref: str, *, model: Optional[str] = None, max_words: int = 20) -> str:
+def run_alt_text(
+    image_ref: str,
+    *,
+    model: Optional[str] = None,
+    max_words: int = 20,
+    context: Optional[str] = None,
+) -> str:
+    user_prompt = prompts.alt_user_prompt(max_words)
+    if context:
+        user_prompt = f"{user_prompt}\n\n{context}"
     if _use_local_for("caption"):
-        prompt = f"{prompts.ALT_SYSTEM}\n\n{prompts.alt_user_prompt(max_words)}"
+        prompt = f"{prompts.ALT_SYSTEM}\n\n{user_prompt}"
         return _local_gen(image_ref, prompt)
     if _use_ollama_for("caption"):
         from cv_mcp.captioning.ollama_client import OllamaClient
         client = OllamaClient(host=str(_cfg_value("ollama_host", "http://localhost:11434")))
         res = client.analyze_single_image(
             image_ref,
-            prompts.alt_user_prompt(max_words),
+            user_prompt,
             model=_cfg_value("caption_model"),
             system=prompts.ALT_SYSTEM,
         )
@@ -134,7 +143,7 @@ def run_alt_text(image_ref: str, *, model: Optional[str] = None, max_words: int 
     client = OpenRouterClient()
     res = client.analyze_single_image(
         image_ref,
-        prompts.alt_user_prompt(max_words),
+        user_prompt,
         model=model or _cfg_value("caption_model"),
         system=prompts.ALT_SYSTEM,
     )
@@ -143,16 +152,24 @@ def run_alt_text(image_ref: str, *, model: Optional[str] = None, max_words: int 
     return str(res.get("content", "")).strip()
 
 
-def run_dense_caption(image_ref: str, *, model: Optional[str] = None) -> str:
+def run_dense_caption(
+    image_ref: str,
+    *,
+    model: Optional[str] = None,
+    context: Optional[str] = None,
+) -> str:
+    user_prompt = prompts.CAPTION_USER
+    if context:
+        user_prompt = f"{user_prompt}\n\n{context}"
     if _use_local_for("caption"):
-        prompt = f"{prompts.CAPTION_SYSTEM}\n\n{prompts.CAPTION_USER}"
+        prompt = f"{prompts.CAPTION_SYSTEM}\n\n{user_prompt}"
         return _local_gen(image_ref, prompt)
     if _use_ollama_for("caption"):
         from cv_mcp.captioning.ollama_client import OllamaClient
         client = OllamaClient(host=str(_cfg_value("ollama_host", "http://localhost:11434")))
         res = client.analyze_single_image(
             image_ref,
-            prompts.CAPTION_USER,
+            user_prompt,
             model=_cfg_value("caption_model"),
             system=prompts.CAPTION_SYSTEM,
         )
@@ -162,7 +179,7 @@ def run_dense_caption(image_ref: str, *, model: Optional[str] = None) -> str:
     client = OpenRouterClient()
     res = client.analyze_single_image(
         image_ref,
-        prompts.CAPTION_USER,
+        user_prompt,
         model=model or _cfg_value("caption_model"),
         system=prompts.CAPTION_SYSTEM,
     )
@@ -177,8 +194,11 @@ def run_structured_json(
     *,
     schema_path: Union[str, Path],
     model: Optional[str] = None,
+    context: Optional[str] = None,
         ) -> Dict[str, Any]:
     user_prompt = prompts.structured_user(dense_caption)
+    if context:
+        user_prompt = f"{user_prompt}\n\n{context}"
     if _use_local_for("metadata_vision"):
         prompt = f"{prompts.structured_system()}\n\n{user_prompt}"
         text = _local_gen(image_ref, prompt, max_new_tokens=512)
@@ -302,16 +322,24 @@ def _post_validate(data: Dict[str, Any]) -> None:
             pass
 
 
-def run_alt_and_caption(image_ref: str, *, model: Optional[str] = None) -> Dict[str, str]:
+def run_alt_and_caption(
+    image_ref: str,
+    *,
+    model: Optional[str] = None,
+    context: Optional[str] = None,
+) -> Dict[str, str]:
+    user_prompt = prompts.ac_user()
+    if context:
+        user_prompt = f"{user_prompt}\n\n{context}"
     if _use_local_for("caption"):
-        prompt = f"{prompts.AC_SYSTEM}\n\n{prompts.ac_user()}"
+        prompt = f"{prompts.AC_SYSTEM}\n\n{user_prompt}"
         text = _local_gen(image_ref, prompt, max_new_tokens=512)
     elif _use_ollama_for("caption"):
         from cv_mcp.captioning.ollama_client import OllamaClient
         client = OllamaClient(host=str(_cfg_value("ollama_host", "http://localhost:11434")))
         res = client.analyze_single_image(
             image_ref,
-            prompts.ac_user(),
+            user_prompt,
             model=_cfg_value("caption_model"),
             system=prompts.AC_SYSTEM,
         )
@@ -322,7 +350,7 @@ def run_alt_and_caption(image_ref: str, *, model: Optional[str] = None) -> Dict[
         client = OpenRouterClient()
         res = client.analyze_single_image(
             image_ref,
-            prompts.ac_user(),
+            user_prompt,
             model=model or _cfg_value("caption_model"),
             system=prompts.AC_SYSTEM,
         )
@@ -409,6 +437,7 @@ def run_pipeline_double(
     schema_path: Union[str, Path] = Path(__file__).with_name("schema.json"),
     caption_model: Optional[str] = None,
     metadata_text_model: Optional[str] = None,
+    context: Optional[str] = None,
 ) -> Dict[str, Any]:
     cfg = dict(_CFG)
     if config_path:
@@ -417,7 +446,11 @@ def run_pipeline_double(
         except Exception as e:
             raise RuntimeError(f"Failed to read config from {config_path}: {e}")
     # Prefer per-call overrides but fall back to merged config defaults.
-    ac = run_alt_and_caption(image_ref, model=caption_model or cfg.get("caption_model"))
+    ac = run_alt_and_caption(
+        image_ref,
+        model=caption_model or cfg.get("caption_model"),
+        context=context,
+    )
     meta = run_metadata_from_caption(ac["caption"], schema_path=schema_path, model=metadata_text_model or cfg.get("metadata_text_model"))
     return {"alt_text": ac["alt_text"], "caption": ac["caption"], "metadata": meta}
 
@@ -429,6 +462,7 @@ def run_pipeline_triple(
     schema_path: Union[str, Path] = Path(__file__).with_name("schema.json"),
     caption_model: Optional[str] = None,
     metadata_vision_model: Optional[str] = None,
+    context: Optional[str] = None,
 ) -> Dict[str, Any]:
     cfg = dict(_CFG)
     if config_path:
@@ -437,6 +471,16 @@ def run_pipeline_triple(
         except Exception as e:
             raise RuntimeError(f"Failed to read config from {config_path}: {e}")
     # Prefer per-call overrides but fall back to merged config defaults.
-    ac = run_alt_and_caption(image_ref, model=caption_model or cfg.get("caption_model"))
-    meta = run_structured_json(image_ref, ac["caption"], schema_path=schema_path, model=metadata_vision_model or cfg.get("metadata_vision_model"))
+    ac = run_alt_and_caption(
+        image_ref,
+        model=caption_model or cfg.get("caption_model"),
+        context=context,
+    )
+    meta = run_structured_json(
+        image_ref,
+        ac["caption"],
+        schema_path=schema_path,
+        model=metadata_vision_model or cfg.get("metadata_vision_model"),
+        context=context,
+    )
     return {"alt_text": ac["alt_text"], "caption": ac["caption"], "metadata": meta}
