@@ -407,6 +407,8 @@ def run_pipeline_double(
     *,
     config_path: Optional[Union[str, Path]] = None,
     schema_path: Union[str, Path] = Path(__file__).with_name("schema.json"),
+    caption_model: Optional[str] = None,
+    metadata_text_model: Optional[str] = None,
 ) -> Dict[str, Any]:
     cfg = dict(_CFG)
     if config_path:
@@ -414,8 +416,9 @@ def run_pipeline_double(
             cfg = json.loads(Path(config_path).read_text(encoding="utf-8"))
         except Exception as e:
             raise RuntimeError(f"Failed to read config from {config_path}: {e}")
-    ac = run_alt_and_caption(image_ref, model=cfg.get("caption_model"))
-    meta = run_metadata_from_caption(ac["caption"], schema_path=schema_path, model=cfg.get("metadata_text_model"))
+    # Prefer per-call overrides but fall back to merged config defaults.
+    ac = run_alt_and_caption(image_ref, model=caption_model or cfg.get("caption_model"))
+    meta = run_metadata_from_caption(ac["caption"], schema_path=schema_path, model=metadata_text_model or cfg.get("metadata_text_model"))
     return {"alt_text": ac["alt_text"], "caption": ac["caption"], "metadata": meta}
 
 
@@ -424,6 +427,8 @@ def run_pipeline_triple(
     *,
     config_path: Optional[Union[str, Path]] = None,
     schema_path: Union[str, Path] = Path(__file__).with_name("schema.json"),
+    caption_model: Optional[str] = None,
+    metadata_vision_model: Optional[str] = None,
 ) -> Dict[str, Any]:
     cfg = dict(_CFG)
     if config_path:
@@ -431,6 +436,7 @@ def run_pipeline_triple(
             cfg = json.loads(Path(config_path).read_text(encoding="utf-8"))
         except Exception as e:
             raise RuntimeError(f"Failed to read config from {config_path}: {e}")
-    ac = run_alt_and_caption(image_ref, model=cfg.get("caption_model"))
-    meta = run_structured_json(image_ref, ac["caption"], schema_path=schema_path, model=cfg.get("metadata_vision_model"))
+    # Prefer per-call overrides but fall back to merged config defaults.
+    ac = run_alt_and_caption(image_ref, model=caption_model or cfg.get("caption_model"))
+    meta = run_structured_json(image_ref, ac["caption"], schema_path=schema_path, model=metadata_vision_model or cfg.get("metadata_vision_model"))
     return {"alt_text": ac["alt_text"], "caption": ac["caption"], "metadata": meta}

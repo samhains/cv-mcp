@@ -8,6 +8,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Planned: additional CLI ergonomics and presets for local/remote testing.
 - Planned: Makefile targets for common workflows.
 
+### Added
+- MCP tools and metadata pipelines now accept per-call model overrides (`model`, `caption_model`, `metadata_text_model`, `metadata_vision_model`) so clients can experiment without editing config files.
+
 ### Fixed
 - Local backend transformers compatibility: Replace non-existent `AutoModelForConditionalGeneration` with proper model classes (`Qwen2_5_VLForConditionalGeneration` for Qwen models)
 - JSON parsing for model outputs wrapped in markdown code blocks (```json...```)
@@ -24,4 +27,3 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Notes
 - Double mode still requires a text LLM via OpenRouter for metadata. Use triple mode with both backends set to `local` for fully local operation.
-

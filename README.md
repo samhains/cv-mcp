@@ -44,19 +44,20 @@ MCP integration (Claude Desktop)
 - After saving, restart Claude Desktop and enable the tool.
 
 Tools
-- `caption_image`: one-off caption (kept for compatibility)
-- `alt_text`: short alt text (<= 20 words)
-- `dense_caption`: detailed 2–6 sentence caption
+- `caption_image`: one-off caption (kept for compatibility); accepts `model` for per-call OpenRouter overrides.
+- `alt_text`: short alt text (<= 20 words); accepts `model` for per-call overrides.
+- `dense_caption`: detailed 2–6 sentence caption; accepts `model` for per-call overrides.
 - `image_metadata`: structured JSON metadata with alt + caption. Params:
   - `mode`: `double` (default) uses 2 calls: vision (alt+caption) + text-only (metadata). `triple` uses vision for both steps.
   - `caption_override`: supply your own dense caption; skips the vision caption step.
+  - Optional per-call model overrides: `caption_model`, `metadata_text_model`, `metadata_vision_model`.
 
 MCP tool reference
 - Server: `cv-mcp` (stdio)
-- `caption_image(image_url|file_path, prompt?, backend?, local_model_id?) -> string`
-- `alt_text(image_url|file_path, max_words?) -> string`
-- `dense_caption(image_url|file_path) -> string`
-- `image_metadata(image_url|file_path, caption_override?, config_path?) -> { alt_text, caption, metadata }`
+- `caption_image(image_url|file_path, prompt?, backend?, local_model_id?, model?) -> string`
+- `alt_text(image_url|file_path, max_words?, model?) -> string`
+- `dense_caption(image_url|file_path, model?) -> string`
+- `image_metadata(image_url|file_path, caption_override?, config_path?, mode?, caption_model?, metadata_text_model?, metadata_vision_model?) -> { alt_text, caption, metadata }`
 
 Examples
 - MCP call (OpenRouter):
@@ -139,6 +140,7 @@ Recommendation for mixed double
 - OpenRouter key requirements:
   - Double mode always requires `OPENROUTER_API_KEY` (text LLM for metadata).
   - Triple mode requires `OPENROUTER_API_KEY` unless both `--ac-backend local` and `--meta-vision-backend local` are set.
+- Per-call model overrides (MCP): pass `model`, `caption_model`, `metadata_text_model`, or `metadata_vision_model` in the tool payload to experiment without editing config files.
 
 Examples
 - MCP tool (local): `{"backend": "local", "file_path": "./image.jpg"}`
