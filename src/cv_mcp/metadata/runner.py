@@ -270,20 +270,22 @@ def _clamp(v: Any, lo: float = 0.0, hi: float = 1.0) -> Any:
 
 
 def _post_validate(data: Dict[str, Any]) -> None:
-    # Enforce array caps and build tags if missing
-    def _cap(key: str, n: int):
-        if isinstance(data.get(key), list) and len(data[key]) > n:
-            data[key] = data[key][:n]
-
-    for k, n in ("objects", 6), ("scene", 3), ("lighting", 3), ("style", 5), ("palette", 6), ("tags", 20):
-        _cap(k, n)
-
     # Ensure people fields exist with defaults
     if not isinstance(data.get("people"), dict):
         data["people"] = {"count": 0, "faces_visible": False}
     else:
         data["people"].setdefault("count", 0)
         data["people"].setdefault("faces_visible", False)
+
+    # Normalize list-like fields so they are always present, enabling downstream aggregation.
+    for key in ("scene", "lighting", "style", "palette", "text", "privacy", "objects", "tags"):
+        value = data.get(key)
+        if isinstance(value, list):
+            continue
+        if value is None:
+            continue
+        # Coerce scalars to singleton lists to preserve signal without violating the schema.
+        data[key] = [value]
 
     # Compute tags union if missing or empty
     if not isinstance(data.get("tags"), list) or not data.get("tags"):
@@ -304,7 +306,7 @@ def _post_validate(data: Dict[str, Any]) -> None:
         data["tags"] = uniq[:20]
 
     # Always include essential keys; drop empty/null fields for others
-    essentials = {"media_type", "objects", "people", "tags"}
+    essentials = {"media_type", "people"}
     to_delete = []
     for k, v in list(data.items()):
         if k in essentials:
@@ -327,9 +329,10 @@ def run_alt_and_caption(
     *,
     model: Optional[str] = None,
     context: Optional[str] = None,
+    use_context_for_caption: bool = True,
 ) -> Dict[str, str]:
     user_prompt = prompts.ac_user()
-    if context:
+    if use_context_for_caption and context:
         user_prompt = f"{user_prompt}\n\n{context}"
     if _use_local_for("caption"):
         prompt = f"{prompts.AC_SYSTEM}\n\n{user_prompt}"
@@ -387,13 +390,22 @@ def run_alt_and_caption(
     return {"alt_text": str(data.get("alt_text", "")).strip(), "caption": str(data.get("caption", "")).strip()}
 
 
-def run_metadata_from_caption(caption: str, *, schema_path: Union[str, Path], model: Optional[str] = None) -> Dict[str, Any]:
+def run_metadata_from_caption(
+    caption: str,
+    *,
+    schema_path: Union[str, Path],
+    model: Optional[str] = None,
+    context: Optional[str] = None,
+) -> Dict[str, Any]:
     # Text metadata requires a chat LLM; only OpenRouter supported here.
     client = OpenRouterClient()
+    user_content = prompts.structured_text_user(caption)
+    if context:
+        user_content = f"{user_content}\n\n{context}"
     res = client.chat(
         messages=[
             {"role": "system", "content": prompts.structured_text_system()},
-            {"role": "user", "content": prompts.structured_text_user(caption)},
+            {"role": "user", "content": user_content},
         ],
         model=model or _cfg_value("metadata_text_model"),
     )
@@ -438,6 +450,7 @@ def run_pipeline_double(
     caption_model: Optional[str] = None,
     metadata_text_model: Optional[str] = None,
     context: Optional[str] = None,
+    use_context_for_caption: bool = True,
 ) -> Dict[str, Any]:
     cfg = dict(_CFG)
     if config_path:
@@ -450,8 +463,14 @@ def run_pipeline_double(
         image_ref,
         model=caption_model or cfg.get("caption_model"),
         context=context,
+        use_context_for_caption=use_context_for_caption,
     )
-    meta = run_metadata_from_caption(ac["caption"], schema_path=schema_path, model=metadata_text_model or cfg.get("metadata_text_model"))
+    meta = run_metadata_from_caption(
+        ac["caption"],
+        schema_path=schema_path,
+        model=metadata_text_model or cfg.get("metadata_text_model"),
+        context=context,
+    )
     return {"alt_text": ac["alt_text"], "caption": ac["caption"], "metadata": meta}
 
 
@@ -463,6 +482,7 @@ def run_pipeline_triple(
     caption_model: Optional[str] = None,
     metadata_vision_model: Optional[str] = None,
     context: Optional[str] = None,
+    use_context_for_caption: bool = True,
 ) -> Dict[str, Any]:
     cfg = dict(_CFG)
     if config_path:
@@ -475,6 +495,7 @@ def run_pipeline_triple(
         image_ref,
         model=caption_model or cfg.get("caption_model"),
         context=context,
+        use_context_for_caption=use_context_for_caption,
     )
     meta = run_structured_json(
         image_ref,

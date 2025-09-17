@@ -124,6 +124,7 @@ def image_metadata(
     metadata_text_model: Optional[str] = None,
     metadata_vision_model: Optional[str] = None,
     context: Optional[str] = None,
+    use_context_for_caption: bool = True,
 ) -> dict:
     if not image_url and not file_path:
         raise ValueError("Provide either image_url or file_path")
@@ -140,8 +141,10 @@ def image_metadata(
                 caption_override,
                 schema_path=schema_path,
                 model=metadata_text_model,
+                context=context,
             )
-            alt = run_alt_text(image_ref, model=caption_model, context=context)
+            alt_context = context if use_context_for_caption else None
+            alt = run_alt_text(image_ref, model=caption_model, context=alt_context)
             return {"alt_text": alt, "caption": caption_override, "metadata": meta}
         elif mode == "triple":
             # Vision+caption metadata
@@ -152,7 +155,8 @@ def image_metadata(
                 model=metadata_vision_model,
                 context=context,
             )
-            alt = run_alt_text(image_ref, model=caption_model, context=context)
+            alt_context = context if use_context_for_caption else None
+            alt = run_alt_text(image_ref, model=caption_model, context=alt_context)
             return {"alt_text": alt, "caption": caption_override, "metadata": meta}
         else:
             raise ValueError("mode must be 'double' or 'triple'")
@@ -167,6 +171,7 @@ def image_metadata(
             caption_model=caption_model,
             metadata_text_model=metadata_text_model,
             context=context,
+            use_context_for_caption=use_context_for_caption,
         )
     elif mode == "triple":
         return run_pipeline_triple(
@@ -176,6 +181,7 @@ def image_metadata(
             caption_model=caption_model,
             metadata_vision_model=metadata_vision_model,
             context=context,
+            use_context_for_caption=use_context_for_caption,
         )
     else:
         raise ValueError("mode must be 'double' or 'triple'")
