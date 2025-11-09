@@ -2,6 +2,10 @@
 
 Minimal MCP server focused on computer vision: image recognition and metadata generation via OpenRouter (Gemini 2.5 family).
 
+<a href="https://glama.ai/mcp/servers/@samhains/cv-mcp">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@samhains/cv-mcp/badge" alt="Computer Vision Server MCP server" />
+</a>
+
 Goals
 - Keep it tiny and composable
 - Single tool: caption an image via URL or local file
